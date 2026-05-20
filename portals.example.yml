@@ -1,0 +1,91 @@
+# ─────────────────────────────────────────────────────────────────
+#  JobForge — Job Portals Configuration
+#  Copy this file to portals.yml and customize for your job search
+# ─────────────────────────────────────────────────────────────────
+
+# Keywords to filter job titles by (leave empty to get all jobs)
+keywords:
+  - "AI Engineer"
+  - "ML Engineer"
+  - "Software Engineer"
+  - "Backend Engineer"
+  - "Platform Engineer"
+  - "Staff Engineer"
+
+# Companies to scan — specify the ATS they use
+# Supported ATS: greenhouse, lever, ashby
+companies:
+  # ── AI Labs ──────────────────────────────────
+  - name: "Anthropic"
+    ats: "greenhouse"
+    slug: "anthropic"
+
+  - name: "OpenAI"
+    ats: "greenhouse"
+    slug: "openai"
+
+  - name: "Mistral AI"
+    ats: "lever"
+    slug: "mistral"
+
+  - name: "Cohere"
+    ats: "greenhouse"
+    slug: "cohere"
+
+  # ── AI Platforms ─────────────────────────────
+  - name: "LangChain"
+    ats: "ashby"
+    slug: "langchain"
+
+  - name: "Pinecone"
+    ats: "greenhouse"
+    slug: "pinecone"
+
+  - name: "Weights & Biases"
+    ats: "lever"
+    slug: "wandb"
+
+  # ── Developer Tools ──────────────────────────
+  - name: "Vercel"
+    ats: "lever"
+    slug: "vercel"
+
+  - name: "Retool"
+    ats: "greenhouse"
+    slug: "retool"
+
+  - name: "Linear"
+    ats: "ashby"
+    slug: "linear"
+
+  - name: "Temporal"
+    ats: "greenhouse"
+    slug: "temporal"
+
+  # ── Voice AI ─────────────────────────────────
+  - name: "ElevenLabs"
+    ats: "ashby"
+    slug: "elevenlabs"
+
+  - name: "Deepgram"
+    ats: "greenhouse"
+    slug: "deepgram"
+
+  # ── Automation ───────────────────────────────
+  - name: "n8n"
+    ats: "greenhouse"
+    slug: "n8n"
+
+  # ── Enterprise / Scale ───────────────────────
+  - name: "Glean"
+    ats: "greenhouse"
+    slug: "glean"
+
+  - name: "Gong"
+    ats: "greenhouse"
+    slug: "gong"
+
+  # Add more companies below:
+  # - name: "Company Name"
+  #   ats: "greenhouse|lever|ashby"
+  #   slug: "company-slug"
