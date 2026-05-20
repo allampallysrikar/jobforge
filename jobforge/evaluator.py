@@ -4,17 +4,16 @@ Uses Gemini to score jobs against your profile and CV
 """
 
 import json
-import re
 from dataclasses import dataclass
 from typing import Any
 
-import google.generativeai as genai
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich import box
 
-from .config import get_gemini_key, get_gemini_model, load_profile, load_cv, profile_to_text
+from .config import load_profile, load_cv, profile_to_text
+from .gemini import generate, parse_json_response
 
 console = Console()
 
@@ -107,31 +106,15 @@ class Evaluation:
     raw: dict[str, Any]
 
 
-def _init_gemini() -> genai.GenerativeModel:
-    genai.configure(api_key=get_gemini_key())
-    return genai.GenerativeModel(get_gemini_model())
-
-
-def _parse_response(text: str) -> dict[str, Any]:
-    """Extract JSON from Gemini response — handles markdown fences."""
-    text = text.strip()
-    # Strip markdown fences if present
-    if text.startswith("```"):
-        text = re.sub(r"^```(?:json)?\n?", "", text)
-        text = re.sub(r"\n?```$", "", text)
-    return json.loads(text)
-
-
 def evaluate_job(job_description: str, verbose: bool = True) -> Evaluation:
     """
     Evaluate a job description against the user's profile and CV.
     Returns a structured Evaluation object.
+    Retries automatically on rate-limit / transient errors.
     """
     profile = load_profile()
-    cv = load_cv()
+    cv      = load_cv()
     weights = profile.get("scoring_weights", {})
-
-    model = _init_gemini()
 
     prompt = EVAL_PROMPT.format(
         profile=profile_to_text(profile),
@@ -141,10 +124,10 @@ def evaluate_job(job_description: str, verbose: bool = True) -> Evaluation:
     )
 
     if verbose:
-        console.print("[dim]🤖 Analyzing job with Gemini...[/dim]")
+        console.print("[dim]🤖 Analyzing job with Gemini…[/dim]")
 
-    response = model.generate_content(prompt)
-    raw = _parse_response(response.text)
+    text = generate(prompt, label="evaluator")
+    raw  = parse_json_response(text)
 
     eval_obj = Evaluation(
         title=raw.get("title", "Unknown Role"),

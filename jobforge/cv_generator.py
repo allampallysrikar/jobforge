@@ -3,21 +3,16 @@ JobForge — CV Generator
 Tailors your CV for a specific job using Gemini, then renders to HTML
 """
 
-import json
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import google.generativeai as genai
 from jinja2 import Environment, FileSystemLoader
 from rich.console import Console
 
-from .config import (
-    get_gemini_key, get_gemini_model, load_profile, load_cv,
-    profile_to_text, TEMPLATES_DIR
-)
+from .config import load_profile, load_cv, profile_to_text, TEMPLATES_DIR
 from .evaluator import Evaluation
+from .gemini import generate, parse_json_response
 
 console = Console()
 
@@ -119,42 +114,37 @@ def generate_tailored_cv(
 ) -> TailoredCV:
     """
     Generate a tailored CV for a specific job.
-    Optionally uses evaluation data for better tailoring.
+    Uses evaluation data (keywords, tailoring tips) when available.
+    Retries automatically on rate-limit / transient errors.
     """
     profile = load_profile()
-    cv = load_cv()
+    cv      = load_cv()
 
-    model_name = get_gemini_model()
-    genai.configure(api_key=get_gemini_key())
-    model = genai.GenerativeModel(model_name)
-
-    # Use evaluation data if available
-    keywords = []
-    tailoring_tips = []
+    # Prefer evaluation metadata if supplied
+    keywords: list[str]       = []
+    tailoring_tips: list[str] = []
     if evaluation:
-        keywords = evaluation.keywords
+        keywords       = evaluation.keywords
         tailoring_tips = evaluation.tailoring_tips
-        job_title = job_title or evaluation.title
-        company = company or evaluation.company
+        job_title      = job_title or evaluation.title
+        company        = company   or evaluation.company
 
     prompt = CV_PROMPT.format(
         profile=profile_to_text(profile),
         cv=cv,
         job_title=job_title,
         company=company,
-        keywords=", ".join(keywords[:20]) if keywords else "extract from JD",
-        tailoring_tips="\n".join(f"- {t}" for t in tailoring_tips) if tailoring_tips else "optimize for job",
+        keywords=(", ".join(keywords[:20]) if keywords else "extract from job description"),
+        tailoring_tips=(
+            "\n".join(f"- {t}" for t in tailoring_tips)
+            if tailoring_tips else "optimize for this specific role"
+        ),
         job_description=job_description,
     )
 
-    console.print("[dim]✏ Generating tailored CV with Gemini...[/dim]")
-    response = model.generate_content(prompt)
-
-    text = response.text.strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```(?:json)?\n?", "", text)
-        text = re.sub(r"\n?```$", "", text)
-    raw = json.loads(text)
+    console.print("[dim]✏ Generating tailored CV with Gemini…[/dim]")
+    text = generate(prompt, label="cv_generator")
+    raw  = parse_json_response(text)
 
     return TailoredCV(
         headline=raw.get("headline", ""),
