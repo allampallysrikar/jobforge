@@ -2,6 +2,7 @@
 
 **AI-powered job search automation — built by Srikar Allampally**
 
+[![CI](https://github.com/allampallysrikar/jobforge/actions/workflows/ci.yml/badge.svg)](https://github.com/allampallysrikar/jobforge/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)](https://python.org)
 [![Gemini](https://img.shields.io/badge/Gemini_AI-Free_Tier-4285F4?style=flat&logo=google&logoColor=white)](https://aistudio.google.com)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -53,20 +54,38 @@ jobforge eval https://jobs.ashbyhq.com/anthropic/senior-engineer
 ## Commands
 
 ```
-jobforge eval <url>          Evaluate a job URL — scores A–F, generates report
-jobforge eval --text         Evaluate by pasting a job description
-jobforge eval <url> --pdf    Evaluate + generate tailored CV PDF
-jobforge cv <job_id>         Generate tailored CV PDF for a tracked job
-jobforge scan                Scan configured job portals for new listings
-jobforge scan --eval         Scan + auto-evaluate all found jobs
-jobforge pipeline            View your full application pipeline
-jobforge pipeline --grade B  Filter by minimum grade
-jobforge pipeline --status applied
-jobforge view <job_id>       View detailed evaluation for a job
-jobforge status <id> applied Update application status
-jobforge note <id> "text"    Add a note to a job
-jobforge stats               Pipeline statistics
-jobforge doctor              Check all dependencies and setup
+# Evaluate
+jobforge eval <url>                  Score a job A–F against your CV and profile
+jobforge eval --text                 Evaluate by pasting a job description
+jobforge eval <url> --pdf            Evaluate + generate tailored CV PDF
+
+# CV generation
+jobforge cv <job_id>                 Generate tailored CV PDF for a tracked job
+
+# Scanning
+jobforge scan                        Scan configured job portals for new listings
+jobforge scan --eval                 Scan + auto-evaluate newly found jobs
+jobforge scan --eval --max-eval 20   Cap auto-evaluation at 20 jobs per run
+
+# Pipeline management
+jobforge pipeline                    View full application pipeline
+jobforge pipeline --grade B          Filter by minimum grade (A/B/C/D/F)
+jobforge pipeline --status applied   Filter by status
+jobforge view <job_id>               View detailed evaluation report
+jobforge status <id> applied         Update application status
+jobforge note <id> "text"            Add a note to a job
+
+# Search & export
+jobforge search <query>              Search jobs by title, company, or location
+jobforge open <job_id>               Open job URL in browser
+jobforge export                      Export pipeline to CSV (default)
+jobforge export --format json        Export as JSON
+jobforge export --grade B            Export only grade B+ jobs
+jobforge export --status applied     Export by status
+
+# Info
+jobforge stats                       Pipeline statistics
+jobforge doctor                      Check all dependencies and setup
 ```
 
 ## How It Works
@@ -100,6 +119,31 @@ Copy `portals.example.yml` → `portals.yml` and add the companies you want to t
 - Chromium (installed via `playwright install chromium`)
 
 See [docs/SETUP.md](docs/SETUP.md) for detailed setup instructions.
+
+## Project Structure
+
+```
+jobforge/
+├── jobforge/
+│   ├── main.py          CLI entry point (Typer commands)
+│   ├── config.py        Profile, CV, and portal loading
+│   ├── scraper.py       Concurrent Greenhouse/Lever/Ashby scanner
+│   ├── evaluator.py     Gemini-powered job scoring (A–F)
+│   ├── cv_generator.py  Tailored CV generation
+│   ├── gemini.py        Shared Gemini API wrapper (retry + backoff)
+│   ├── tracker.py       SQLite job database
+│   ├── dashboard.py     Rich terminal UI
+│   └── pdf_gen.py       Playwright HTML→PDF renderer
+├── templates/
+│   └── cv.html          Jinja2 CV template
+├── config/
+│   └── profile.example.yml
+├── tests/               Full unit test suite (no API calls)
+├── docs/SETUP.md        Detailed setup guide
+├── portals.example.yml  Sample job portal config
+├── .env.example
+└── pyproject.toml
+```
 
 ## License
 
