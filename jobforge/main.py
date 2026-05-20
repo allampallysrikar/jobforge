@@ -309,6 +309,119 @@ def add_note_cmd(
     console.print(f"[green]✓ Note added to job #{job_id}[/green]")
 
 
+@app.command("search")
+def search(
+    query: str = typer.Argument(..., help="Search text (title, company, or location)"),
+    grade: Optional[str] = typer.Option(None, "--grade", "-g", help="Minimum grade filter"),
+):
+    """
+    Search jobs in your tracker by title, company, or location.
+
+    Example:
+      jobforge search "staff engineer"
+      jobforge search anthropic --grade B
+    """
+    from .tracker import list_jobs
+    from .dashboard import show_pipeline
+
+    jobs = list_jobs(min_grade=grade, limit=200)
+    q = query.lower()
+    matched = [
+        j for j in jobs
+        if q in (j.get("title") or "").lower()
+        or q in (j.get("company") or "").lower()
+        or q in (j.get("location") or "").lower()
+    ]
+
+    if not matched:
+        console.print(f"[yellow]No jobs matching '[bold]{query}[/bold]'[/yellow]")
+        return
+
+    console.print(f"[dim]Found [bold]{len(matched)}[/bold] jobs matching '{query}'[/dim]\n")
+    # Re-use the pipeline view by temporarily replacing list_jobs
+    from .dashboard import show_pipeline
+    from . import dashboard as _dash
+    _orig = _dash.list_jobs
+    _dash.list_jobs = lambda **kw: matched   # monkey-patch for this call
+    show_pipeline()
+    _dash.list_jobs = _orig
+
+
+@app.command("open")
+def open_job(
+    job_id: int = typer.Argument(..., help="Job ID to open in browser"),
+):
+    """
+    Open a job URL in your default browser.
+
+    Example:
+      jobforge open 42
+    """
+    import webbrowser
+    from .tracker import get_job
+
+    job = get_job(job_id)
+    if not job:
+        console.print(f"[red]Job #{job_id} not found.[/red]")
+        raise typer.Exit(1)
+
+    url = job.get("url", "")
+    if not url or url == "manual-input":
+        console.print(f"[yellow]Job #{job_id} has no URL.[/yellow]")
+        raise typer.Exit(1)
+
+    console.print(f"[dim]Opening:[/dim] {url}")
+    webbrowser.open(url)
+
+
+@app.command("export")
+def export(
+    output: Optional[str] = typer.Option(None, "--output", "-o", help="Output file path (default: pipeline.csv)"),
+    status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by status"),
+    grade: Optional[str] = typer.Option(None, "--grade", "-g", help="Minimum grade"),
+    fmt: str = typer.Option("csv", "--format", "-f", help="Output format: csv or json"),
+):
+    """
+    Export your job pipeline to CSV or JSON.
+
+    Examples:
+      jobforge export
+      jobforge export --format json --output jobs.json
+      jobforge export --status applied --grade B
+    """
+    import csv
+    import json as _json
+    from pathlib import Path
+    from .tracker import list_jobs
+
+    jobs = list_jobs(status=status, min_grade=grade, limit=1000)
+    if not jobs:
+        console.print("[yellow]No jobs to export.[/yellow]")
+        return
+
+    default_name = f"pipeline.{fmt}"
+    out_path = Path(output or default_name)
+
+    if fmt == "json":
+        # Remove raw evaluation JSON to keep the export readable
+        clean = [{k: v for k, v in j.items() if k != "evaluation_json"} for j in jobs]
+        out_path.write_text(_json.dumps(clean, indent=2))
+    else:
+        # CSV
+        cols = [
+            "id", "title", "company", "location", "remote_policy",
+            "grade", "overall_score", "recommendation", "status",
+            "salary_min", "salary_max", "salary_currency",
+            "applied_at", "cv_path", "url", "created_at",
+        ]
+        with open(out_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(jobs)
+
+    console.print(f"[green]✓ Exported {len(jobs)} jobs → {out_path}[/green]")
+
+
 @app.command("stats")
 def stats():
     """Show pipeline statistics and summary."""
@@ -410,16 +523,19 @@ def main(ctx: typer.Context):
         console.print(BANNER)
         console.print("[bold]Commands:[/bold]")
         commands = [
-            ("eval <url>",      "Evaluate a job posting (scores A–F)"),
-            ("eval --text",     "Evaluate by pasting job description"),
-            ("cv <job_id>",     "Generate tailored CV PDF"),
-            ("scan",            "Scan job portals for new listings"),
-            ("pipeline",        "View your application pipeline"),
-            ("view <job_id>",   "View job details"),
-            ("status <id> <s>", "Update job status"),
-            ("note <job_id>",   "Add a note to a job"),
-            ("stats",           "Pipeline statistics"),
-            ("doctor",          "Check setup"),
+            ("eval <url>",       "Evaluate a job posting (scores A–F)"),
+            ("eval --text",      "Evaluate by pasting job description"),
+            ("cv <job_id>",      "Generate tailored CV PDF"),
+            ("scan",             "Scan job portals for new listings"),
+            ("pipeline",         "View your application pipeline"),
+            ("search <query>",   "Search jobs by title, company, location"),
+            ("view <job_id>",    "View job details"),
+            ("open <job_id>",    "Open job URL in browser"),
+            ("status <id> <s>",  "Update job status"),
+            ("note <job_id>",    "Add a note to a job"),
+            ("export",           "Export pipeline to CSV or JSON"),
+            ("stats",            "Pipeline statistics"),
+            ("doctor",           "Check setup"),
         ]
         for cmd, desc in commands:
             console.print(f"  [cyan]jobforge {cmd:<22}[/cyan] {desc}")
