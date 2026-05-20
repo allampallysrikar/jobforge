@@ -1,0 +1,105 @@
+# ─────────────────────────────────────────────────────────────
+#  JobForge — Your Profile
+#  Copy this file to config/profile.yml and fill in YOUR details
+#  This is what the AI uses to evaluate job fit and tailor CVs
+# ─────────────────────────────────────────────────────────────
+
+personal:
+  name: "Your Full Name"
+  email: "you@example.com"
+  phone: "+1 234 567 8900"
+  location: "City, Country"
+  linkedin: "https://linkedin.com/in/yourprofile"
+  github: "https://github.com/yourusername"
+  website: "https://yourwebsite.com"  # optional
+
+# What kind of roles are you looking for?
+target:
+  titles:
+    - "Senior Software Engineer"
+    - "Lead Backend Engineer"
+    - "Staff Engineer"
+  domains:
+    - "AI/ML Infrastructure"
+    - "Backend Systems"
+    - "Platform Engineering"
+  locations:
+    - "Remote"
+    - "San Francisco, CA"
+    - "New York, NY"
+  remote_preference: "remote"   # remote / hybrid / onsite / any
+  employment_type: "full-time"  # full-time / contract / any
+
+# Salary expectations
+salary:
+  min_usd: 120000
+  target_usd: 160000
+  currency: "USD"
+  negotiable: true
+
+# Your skills — be specific, these drive keyword matching in CVs
+skills:
+  languages:
+    - "Python"
+    - "TypeScript"
+    - "Go"
+  frameworks:
+    - "FastAPI"
+    - "React"
+    - "Node.js"
+  ai_ml:
+    - "LLM integration"
+    - "RAG pipelines"
+    - "Prompt engineering"
+  infrastructure:
+    - "AWS"
+    - "Docker"
+    - "Kubernetes"
+    - "PostgreSQL"
+  tools:
+    - "Git"
+    - "CI/CD"
+    - "Terraform"
+
+# Your experience level
+experience:
+  years_total: 5
+  level: "senior"  # junior / mid / senior / staff / principal
+  highlights:
+    - "Built and scaled X from 0 to Y users"
+    - "Led a team of N engineers"
+    - "Reduced latency by X%"
+
+# What you value in a company (used for culture/fit scoring)
+preferences:
+  company_size: "startup-to-mid"  # startup / mid / enterprise / any
+  stage: "series-a-to-c"         # early / series-a-to-c / late / public / any
+  values:
+    - "Engineering-driven culture"
+    - "Clear career growth"
+    - "Interesting technical problems"
+  avoid:
+    - "Heavy process / slow pace"
+    - "No remote flexibility"
+    - "Declining industry"
+
+# How to score jobs (weights must add to 100)
+scoring_weights:
+  role_fit: 25        # Does the role match your target titles/skills?
+  salary_match: 20    # Does comp meet your expectations?
+  company_quality: 20 # Stage, growth, funding, reputation
+  growth_potential: 15 # Career trajectory, learning opportunity
+  tech_match: 10      # Tech stack alignment
+  location_fit: 5     # Remote/location match
+  culture_fit: 5      # Values alignment
+
+# Companies to always skip (blocklist)
+skip_companies: []
+# skip_companies:
+#   - "Company I had bad experience with"
+
+# Companies you're very interested in (priority boost)
+dream_companies:
+  - "Anthropic"
+  - "OpenAI"
+  - "Google DeepMind"
