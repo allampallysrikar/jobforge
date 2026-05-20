@@ -172,66 +172,88 @@ def _generate_pdf_for_job(job_id: int, job_description: str, evaluation=None):
 
 @app.command("scan")
 def scan(
-    limit: int = typer.Option(50, "--limit", "-l", help="Max jobs to return"),
-    auto_eval: bool = typer.Option(False, "--eval", help="Auto-evaluate all found jobs"),
+    limit: int  = typer.Option(50,    "--limit", "-l", help="Max jobs to fetch per portal"),
+    auto_eval: bool = typer.Option(False, "--eval",      help="Auto-evaluate all newly found jobs"),
+    max_eval: int   = typer.Option(10,    "--max-eval",  help="Max jobs to evaluate per scan (rate-limit guard)"),
 ):
     """
     Scan configured job portals for new listings.
     Configure companies in portals.yml.
 
-    Example:
+    Examples:
       jobforge scan
       jobforge scan --eval
+      jobforge scan --eval --max-eval 5
     """
     from .scraper import scan_portals
     from .config import load_portals
     from .tracker import add_job, get_job_by_url
 
-    console.print("[bold]🔍 Scanning job portals...[/bold]")
-    portals = load_portals()
-    jobs = scan_portals(portals)[:limit]
+    console.print("[bold]🔍 Scanning job portals…[/bold]")
+    portals  = load_portals()
+    all_jobs = scan_portals(portals)[:limit]
 
-    if not jobs:
-        console.print("[yellow]No new jobs found. Check your portals.yml configuration.[/yellow]")
+    if not all_jobs:
+        console.print("[yellow]No jobs found. Check your portals.yml and keyword filters.[/yellow]")
         return
 
+    # Separate new vs already-tracked
+    new_ids: list[int] = []
     new_count = 0
-    for job in jobs:
+    for job in all_jobs:
         existing = get_job_by_url(job.get("url", ""))
         if not existing:
-            add_job(
+            job_id = add_job(
                 url=job.get("url", ""),
                 title=job.get("title", ""),
                 company=job.get("company", ""),
                 location=job.get("location", ""),
             )
+            new_ids.append(job_id)
             new_count += 1
-            console.print(f"  [green]+[/green] {job['company']} — {job['title']}")
+            console.print(
+                f"  [green]+[/green] [cyan]{job.get('company',''):<20}[/cyan] "
+                f"{job.get('title', '')}"
+            )
         else:
-            console.print(f"  [dim]~[/dim] {job.get('company', '')} — {job.get('title', '')} [dim](already tracked)[/dim]")
+            console.print(
+                f"  [dim]~  {job.get('company',''):<20} {job.get('title', '')} (already tracked)[/dim]"
+            )
 
-    console.print(f"\n[bold green]✓ Found {len(jobs)} jobs ({new_count} new)[/bold green]")
+    console.print(f"\n[bold green]✓ {len(all_jobs)} jobs scanned  ·  {new_count} new[/bold green]")
 
-    if auto_eval:
-        console.print("\n[bold]🤖 Auto-evaluating new jobs...[/bold]")
-        from .tracker import list_jobs
-        new_jobs = list_jobs(status="new")
-        for job in new_jobs[:10]:  # Limit to avoid API rate limits
-            if job.get("url") and job["url"] != "manual-input":
-                console.print(f"\n[dim]Evaluating: {job['title']} @ {job['company']}...[/dim]")
-                try:
-                    from .scraper import fetch_job_description
-                    from .evaluator import evaluate_job
-                    from .tracker import save_evaluation
-                    jd = fetch_job_description(job["url"])
-                    ev = evaluate_job(jd, verbose=False)
-                    save_evaluation(job["id"], ev)
-                    from .evaluator import GRADE_COLORS, GRADE_EMOJI
-                    color = GRADE_COLORS.get(ev.grade, "white")
-                    emoji = GRADE_EMOJI.get(ev.grade, "")
-                    console.print(f"  [{color}]{emoji} {ev.grade}  {ev.overall_score:.1f}/5[/{color}]  {ev.title} @ {ev.company}")
-                except Exception as e:
-                    console.print(f"  [red]Failed: {e}[/red]")
+    if auto_eval and new_ids:
+        from .tracker import get_job, save_evaluation
+        from .scraper import fetch_job_description
+        from .evaluator import evaluate_job, GRADE_COLORS, GRADE_EMOJI
+
+        to_eval = new_ids[:max_eval]
+        console.print(f"\n[bold]🤖 Evaluating {len(to_eval)} new job(s) with Gemini…[/bold]")
+
+        for job_id in to_eval:
+            job = get_job(job_id)
+            if not job or not job.get("url") or job["url"] == "manual-input":
+                continue
+            console.print(f"\n  [dim]{job['title']} @ {job['company']}[/dim]")
+            try:
+                jd = fetch_job_description(job["url"])
+                ev = evaluate_job(jd, verbose=False)
+                save_evaluation(job_id, ev)
+                color = GRADE_COLORS.get(ev.grade, "white")
+                emoji = GRADE_EMOJI.get(ev.grade, "")
+                console.print(
+                    f"  [{color}]{emoji} Grade {ev.grade}  {ev.overall_score:.1f}/5  "
+                    f"{ev.recommendation}[/{color}]"
+                )
+            except Exception as exc:
+                console.print(f"  [red]✗ {exc}[/red]")
+
+        if len(new_ids) > max_eval:
+            remaining = len(new_ids) - max_eval
+            console.print(
+                f"\n[dim]⚠ {remaining} more new job(s) not evaluated "
+                f"(use --max-eval {len(new_ids)} to evaluate all)[/dim]"
+            )
 
     console.print(f"\n[dim]View pipeline: [cyan]jobforge pipeline[/cyan][/dim]")
 
